@@ -1,14 +1,9 @@
 # AI Inpainting Detection
 
-## Approach
-- U-Net with EfficientNet-B4 encoder
-- Combined Dice + BCE loss
-- Image augmentations with Albumentations
-- Learning rate scheduling
+## Requirements
+- Python 3.8+
+- CUDA-enabled GPU recommended
 
-## Usage
-1. Install dependencies: `pip install -r requirements.txt`
-2. Train: `python src/train.py`
-3. Predict: `python src/inference.py`
-
-HELLO WORLD
+## Installation
+```bash
+pip install -r requirements.txt
