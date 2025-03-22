@@ -11,12 +11,10 @@ from model import InpaintModel, HybridLoss
 import utils
 
 def main():
-    # Initialize
     torch.manual_seed(42)
     device = config.DEVICE
     config.MODEL_DIR.mkdir(exist_ok=True)
     
-    # Data
     image_paths, mask_paths = utils.get_train_paths()
     train_paths, val_paths = utils.train_val_split(image_paths, mask_paths)
     
@@ -38,7 +36,6 @@ def main():
         num_workers=config.NUM_WORKERS
     )
     
-    # Model
     model = InpaintModel().to(device)
     criterion = HybridLoss()
     optimizer = torch.optim.AdamW(
@@ -55,7 +52,6 @@ def main():
     
     best_dice = 0
     for epoch in range(config.NUM_EPOCHS):
-        # Train
         model.train()
         train_loss = 0
         progress = tqdm(train_loader, desc=f"Epoch {epoch+1}")
@@ -74,16 +70,13 @@ def main():
             train_loss += loss.item() * images.size(0)
             progress.set_postfix(loss=loss.item())
         
-        # Validate
         val_loss, val_dice = utils.evaluate(model, val_loader, device, criterion)
         scheduler.step(val_dice)
-        
-        # Logging
+
         writer.add_scalar("Loss/train", train_loss / len(train_ds), epoch)
         writer.add_scalar("Loss/val", val_loss, epoch)
         writer.add_scalar("Dice/val", val_dice, epoch)
         
-        # Save best
         if val_dice > best_dice:
             best_dice = val_dice
             torch.save(model.state_dict(), config.MODEL_DIR / "best_model.pth")

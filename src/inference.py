@@ -28,12 +28,10 @@ class Predictor:
         return preds
 
 def main():
-    # Initialize
     predictor = Predictor(config.MODEL_DIR / "best_model.pth")
     test_paths = sorted(config.TEST_IMAGE_DIR.glob("*.png"))
     test_ds = InpaintDataset(test_paths, is_train=False)
     
-    # Dataset
     test_ds = InpaintDataset(test_paths, is_train=False)
     test_loader = DataLoader(
         test_ds,
@@ -42,10 +40,8 @@ def main():
         num_workers=4
     )
     
-    # Predict
     preds = predictor.predict_batch(test_loader)
     
-    # Post-process and save
     submission = []
     for path, pred in tqdm(zip(test_paths, preds)):
         mask = utils.postprocess_mask(pred[0])
@@ -55,7 +51,6 @@ def main():
             "EncodedPixels": rle
         })
     
-    # Save CSV
     df = pd.DataFrame(submission)
     df.to_csv("submission.csv", index=False)
 
