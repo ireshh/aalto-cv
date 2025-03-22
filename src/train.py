@@ -17,7 +17,7 @@ def main():
     config.MODEL_DIR.mkdir(exist_ok=True)
     
     # Data
-    image_paths, mask_paths = utils.get_train_paths(config.DATA_DIR)
+    image_paths, mask_paths = utils.get_train_paths()
     train_paths, val_paths = utils.train_val_split(image_paths, mask_paths)
     
     train_ds = InpaintDataset(*train_paths)
@@ -71,53 +71,6 @@ def main():
             loss.backward()
             optimizer.step()
             
-<<<<<<< HEAD
-            epoch_loss += loss.item()
-        
-        # Validation phase
-        model.eval()
-        val_loss = 0
-        val_dice = 0
-        
-        with torch.no_grad():
-            for images, masks in val_loader:
-                images = images.to(device, non_blocking=True)
-                masks = masks.to(device, non_blocking=True)
-                
-                outputs = model(images)
-                loss = criterion(outputs, masks)
-                val_loss += loss.item()
-                
-                preds = (torch.sigmoid(outputs)) > 0.5
-                val_dice += calculate_dice(preds, masks).item()
-        
-        # Calculate metrics
-        train_loss = epoch_loss / len(train_loader)
-        val_loss = val_loss / len(val_loader)
-        val_dice = val_dice / len(val_loader)
-        
-        # Update scheduler
-        scheduler.step(val_dice)
-        
-        # Print progress
-        print(f"Epoch {epoch+1}/{config['epochs']}")
-        print(f"Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
-        print(f"Val Dice: {val_dice:.4f}")
-        
-        # Save best model
-        if val_dice > best_dice:
-            best_dice = val_dice
-            early_stop_counter = 0
-            torch.save(model.state_dict(), Path(config['model_save_path']) / "best_model.pth")
-            print(f"New best model saved with Dice: {best_dice:.4f}")
-        else:
-            early_stop_counter += 1
-        
-        # Early stopping
-        if early_stop_counter >= config['patience']:
-            print(f"Early stopping at epoch {epoch+1}")
-            break
-=======
             train_loss += loss.item() * images.size(0)
             progress.set_postfix(loss=loss.item())
         
@@ -138,7 +91,6 @@ def main():
         print(f"Epoch {epoch+1}: Val Dice = {val_dice:.4f}")
     
     writer.close()
->>>>>>> 023372ec (made training code for LLMs)
 
 if __name__ == "__main__":
     main()

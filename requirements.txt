@@ -1,9 +1,33 @@
-torch>=1.13.0
-torchvision>=0.14.0
-segmentation-models-pytorch>=0.3.0
-albumentations>=1.3.0
-tensorboard>=2.12.0
-pandas>=1.5.3
-opencv-python>=4.7.0
-tqdm>=4.65.0
-scikit-learn>=1.2.2
+# Core Framework
+torch==2.3.0
+torchvision==0.18.0
+segmentation-models-pytorch==0.4.0
+
+# Numerical Computation
+numpy==1.26.4
+scipy==1.13.0
+numexpr==2.10.0          # Minimum 2.8.4 for pandas
+bottleneck==1.3.8        # Minimum 1.3.6 for pandas
+
+# Data Handling
+pandas==2.2.2
+openpyxl==3.1.2
+xlrd==2.0.1
+
+# Image Processing
+albumentations==1.4.0    # Maintain version but suppress warning in code
+opencv-python-headless==4.9.0.80
+scikit-image==0.25.2
+
+# ML Utilities
+scikit-learn==1.4.2
+tensorboard==2.19.0
+
+# Runtime
+tqdm==4.67.1
+PyYAML==6.0.2
+typing-extensions==4.12.2
+
+# System Compatibility
+setuptools==68.2.2
+wheel==0.43.0

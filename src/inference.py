@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 from dataset import InpaintDataset
 from config import config
 import utils
+from model import InpaintModel
 
 class Predictor:
     def __init__(self, model_path):
@@ -29,8 +30,8 @@ class Predictor:
 def main():
     # Initialize
     predictor = Predictor(config.MODEL_DIR / "best_model.pth")
-    test_dir = config.DATA_DIR / "test/images"
-    test_paths = sorted(test_dir.glob("*.png"))
+    test_paths = sorted(config.TEST_IMAGE_DIR.glob("*.png"))
+    test_ds = InpaintDataset(test_paths, is_train=False)
     
     # Dataset
     test_ds = InpaintDataset(test_paths, is_train=False)

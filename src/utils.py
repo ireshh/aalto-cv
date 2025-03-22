@@ -1,33 +1,39 @@
 import cv2
 import numpy as np
-from sklearn.model_selection import train_test_split
 from pathlib import Path
+from sklearn.model_selection import train_test_split
 from config import config
+import torch
 
-# In utils.py update get_train_paths()
-def get_train_paths(data_dir):
-    image_dir = data_dir / "train/images"
-    mask_dir = data_dir / "train/masks"
+def get_train_paths():
+    image_paths = sorted(config.TRAIN_IMAGE_DIR.glob("*.png"))
+    mask_paths = sorted(config.TRAIN_MASK_DIR.glob("*.png"))
     
-    print(f"Image dir exists: {image_dir.exists()}")
-    print(f"Mask dir exists: {mask_dir.exists()}")
-    print(f"Sample image: {list(image_dir.glob('*.png'))[:3]}")
-    
-    image_paths = sorted(image_dir.glob("*.png"))
-    mask_paths = sorted(mask_dir.glob("*.png"))
+    print(f"Found {len(image_paths)} training images")
+    print(f"Found {len(mask_paths)} training masks")
     return image_paths, mask_paths
 
-def train_val_split(image_paths, mask_paths, test_size=0.2):
+def train_val_split(image_paths, mask_paths):
     stratify = [cv2.imread(str(p), 0).mean() > 0 for p in mask_paths]
     train_idx, val_idx = train_test_split(
         range(len(image_paths)),
-        test_size=test_size,
+        test_size=config.VAL_SPLIT,
         stratify=stratify
     )
     return (
         ([image_paths[i] for i in train_idx], [mask_paths[i] for i in train_idx]),
         ([image_paths[i] for i in val_idx], [mask_paths[i] for i in val_idx])
     )
+
+def verify_data_structure():
+    train_images = len(list(config.TRAIN_IMAGE_DIR.glob("*.png")))
+    train_masks = len(list(config.TRAIN_MASK_DIR.glob("*.png")))
+    test_images = len(list(config.TEST_IMAGE_DIR.glob("*.png")))
+    
+    print(f"Train images: {train_images}")
+    print(f"Train masks: {train_masks}")
+    print(f"Test images: {test_images}")
+
 
 def evaluate(model, loader, device, criterion):
     model.eval()
