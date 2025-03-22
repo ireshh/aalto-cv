@@ -1,9 +1,12 @@
-# AI Inpainting Detection
+# AaltoES 2025 Computer Vision Hackathon Solution
 
-## Requirements
-- Python 3.8+
-- CUDA-enabled GPU recommended
+## Approach
+- U-Net with EfficientNet-B4 encoder
+- Hybrid Dice-BCE Loss
+- Albumentations for augmentations
+- Cosine learning rate schedule
+- Test-time post-processing
 
-## Installation
+## Training
 ```bash
-pip install -r requirements.txt
+python train.py

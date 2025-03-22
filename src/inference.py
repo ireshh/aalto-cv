@@ -1,50 +1,62 @@
-import torch
 import cv2
+import torch
 import numpy as np
-from pathlib import Path
-from torch.utils.data import DataLoader
-from dataset import InpaintingDataset
-from model import create_unet
-from utils import mask_to_rle
 import pandas as pd
+from pathlib import Path
+from tqdm import tqdm
+from torch.utils.data import DataLoader
+from dataset import InpaintDataset
+from config import config
+import utils
 
-def predict():
-    # Config
-    test_dir = Path("../data/test/images")
-    model_path = Path("../models/best_model.pth")
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    # Load model
-    model = create_unet()
-    model.load_state_dict(torch.load(model_path))
-    model.to(device)
-    model.eval()
+class Predictor:
+    def __init__(self, model_path):
+        self.device = torch.device(config.DEVICE)
+        self.model = InpaintModel().to(self.device)
+        self.model.load_state_dict(torch.load(model_path))
+        self.model.eval()
+        
+    def predict_batch(self, test_loader):
+        preds = []
+        with torch.no_grad():
+            for images, _ in tqdm(test_loader):
+                images = images.to(self.device)
+                outputs = self.model(images)
+                batch_preds = torch.sigmoid(outputs).cpu().numpy()
+                preds.extend(batch_preds)
+        return preds
+
+def main():
+    # Initialize
+    predictor = Predictor(config.MODEL_DIR / "best_model.pth")
+    test_dir = config.DATA_DIR / "test/images"
+    test_paths = sorted(test_dir.glob("*.png"))
     
     # Dataset
-    test_image_paths = sorted(test_dir.glob("*.png"))
-    dataset = InpaintingDataset(test_image_paths, mode='test')
-    loader = DataLoader(dataset, batch_size=8, shuffle=False)
+    test_ds = InpaintDataset(test_paths, is_train=False)
+    test_loader = DataLoader(
+        test_ds,
+        batch_size=2*config.BATCH_SIZE,
+        shuffle=False,
+        num_workers=4
+    )
     
     # Predict
-    results = []
-    with torch.no_grad():
-        for batch in loader:
-            batch = batch.to(device)
-            outputs = model(batch)
-            outputs = torch.sigmoid(outputs)
-            
-            for i in range(outputs.shape[0]):
-                mask = outputs[i].cpu().numpy().squeeze()
-                mask = (mask > 0.5).astype(np.uint8)
-                rle = mask_to_rle(mask)
-                results.append(rle)
+    preds = predictor.predict_batch(test_loader)
     
-    # Save submission
-    df = pd.DataFrame({
-        "id": [path.stem for path in test_image_paths],
-        "rle": results
-    })
-    df.to_csv("../submissions/submission.csv", index=False)
+    # Post-process and save
+    submission = []
+    for path, pred in tqdm(zip(test_paths, preds)):
+        mask = utils.postprocess_mask(pred[0])
+        rle = utils.mask2rle(mask)
+        submission.append({
+            "ImageId": path.stem,
+            "EncodedPixels": rle
+        })
+    
+    # Save CSV
+    df = pd.DataFrame(submission)
+    df.to_csv("submission.csv", index=False)
 
 if __name__ == "__main__":
-    predict()
+    main()

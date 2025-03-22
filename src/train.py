@@ -1,77 +1,77 @@
 import torch
-import yaml
 import numpy as np
 from pathlib import Path
-from torch.utils.data import DataLoader, random_split
-from torch.optim.lr_scheduler import ReduceLROnPlateau
-from dataset import InpaintingDataset
-from model import create_unet, DiceBCELoss
-from utils import calculate_dice
-import torch.nn as nn
+from tqdm import tqdm
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 
-# Load configuration
-with open("config.yaml") as f:
-    config = yaml.safe_load(f)
+from config import config
+from dataset import InpaintDataset
+from model import InpaintModel, HybridLoss
+import utils
 
 def main():
-    # Setup device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-
-    # Dataset and DataLoader
-    image_dir = Path(config['data_path']) / "train/manipulated"
-    mask_dir = Path(config['data_path']) / "train/masks"
+    # Initialize
+    torch.manual_seed(42)
+    device = config.DEVICE
+    config.MODEL_DIR.mkdir(exist_ok=True)
     
-    image_paths = sorted(image_dir.glob("*.png"))
-    mask_paths = sorted(mask_dir.glob("*.png"))
+    # Data
+    image_paths, mask_paths = utils.get_train_paths(config.DATA_DIR)
+    train_paths, val_paths = utils.train_val_split(image_paths, mask_paths)
     
-    # Train/Validation split
-    dataset = InpaintingDataset(image_paths, mask_paths)
-    train_size = int(0.8 * len(dataset))
-    val_size = len(dataset) - train_size
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+    train_ds = InpaintDataset(*train_paths)
+    val_ds = InpaintDataset(*val_paths, is_train=False)
     
     train_loader = DataLoader(
-        train_dataset,
-        batch_size=config['batch_size'],
+        train_ds,
+        batch_size=config.BATCH_SIZE,
         shuffle=True,
-        num_workers=4,
-        pin_memory=True
+        num_workers=config.NUM_WORKERS,
+        pin_memory=config.PIN_MEMORY
     )
     
     val_loader = DataLoader(
-        val_dataset,
-        batch_size=config['batch_size'],
+        val_ds,
+        batch_size=config.BATCH_SIZE,
         shuffle=False,
-        num_workers=4,
-        pin_memory=True
+        num_workers=config.NUM_WORKERS
     )
-
-    # Model setup
-    model = create_unet().to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'])
-    scheduler = ReduceLROnPlateau(optimizer, 'max', patience=3, factor=0.5, verbose=True)
-    criterion = DiceBCELoss()
+    
+    # Model
+    model = InpaintModel().to(device)
+    criterion = HybridLoss()
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=config.LR,
+        weight_decay=config.WEIGHT_DECAY
+    )
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, 
+        mode='max',
+        patience=2
+    )
+    writer = SummaryWriter()
     
     best_dice = 0
-    early_stop_counter = 0
-
-    # Training loop
-    for epoch in range(config['epochs']):
+    for epoch in range(config.NUM_EPOCHS):
+        # Train
         model.train()
-        epoch_loss = 0
+        train_loss = 0
+        progress = tqdm(train_loader, desc=f"Epoch {epoch+1}")
         
-        # Training phase
-        for images, masks in train_loader:
-            images = images.to(device, non_blocking=True)
-            masks = masks.to(device, non_blocking=True)
+        for images, masks in progress:
+            images = images.to(device)
+            masks = masks.to(device)
             
-            optimizer.zero_grad(set_to_none=True)
+            optimizer.zero_grad()
+            
             outputs = model(images)
             loss = criterion(outputs, masks)
             loss.backward()
             optimizer.step()
             
+<<<<<<< HEAD
             epoch_loss += loss.item()
         
         # Validation phase
@@ -117,6 +117,28 @@ def main():
         if early_stop_counter >= config['patience']:
             print(f"Early stopping at epoch {epoch+1}")
             break
+=======
+            train_loss += loss.item() * images.size(0)
+            progress.set_postfix(loss=loss.item())
+        
+        # Validate
+        val_loss, val_dice = utils.evaluate(model, val_loader, device, criterion)
+        scheduler.step(val_dice)
+        
+        # Logging
+        writer.add_scalar("Loss/train", train_loss / len(train_ds), epoch)
+        writer.add_scalar("Loss/val", val_loss, epoch)
+        writer.add_scalar("Dice/val", val_dice, epoch)
+        
+        # Save best
+        if val_dice > best_dice:
+            best_dice = val_dice
+            torch.save(model.state_dict(), config.MODEL_DIR / "best_model.pth")
+        
+        print(f"Epoch {epoch+1}: Val Dice = {val_dice:.4f}")
+    
+    writer.close()
+>>>>>>> 023372ec (made training code for LLMs)
 
 if __name__ == "__main__":
     main()
